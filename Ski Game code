@@ -1,0 +1,197 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+const SkiGame = () => {
+  const [playerX, setPlayerX] = useState(200);
+  const [gates, setGates] = useState([]);
+  const [coins, setCoins] = useState([]);
+  const [score, setScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [nextColor, setNextColor] = useState('red');
+  const canvasRef = useRef(null);
+
+  const CANVAS_WIDTH = 400;
+  const CANVAS_HEIGHT = 600;
+  const PLAYER_WIDTH = 40;
+  const PLAYER_HEIGHT = 40;
+  const GATE_WIDTH = 20;
+  const GATE_HEIGHT = 40;
+  const COIN_RADIUS = 10;
+
+  const LEFT_BOUND_MIN = CANVAS_WIDTH * 0.25;
+  const LEFT_BOUND_MAX = CANVAS_WIDTH * 0.45;
+  const RIGHT_BOUND_MIN = CANVAS_WIDTH * 0.55;
+  const RIGHT_BOUND_MAX = CANVAS_WIDTH * 0.75;
+  const GATE_SPACING = 300;
+
+  useEffect(() => {
+    const initialGates = [
+      { x: LEFT_BOUND_MIN + Math.random() * (LEFT_BOUND_MAX - LEFT_BOUND_MIN), y: CANVAS_HEIGHT, color: 'red', passed: false },
+      { x: RIGHT_BOUND_MIN + Math.random() * (RIGHT_BOUND_MAX - RIGHT_BOUND_MIN), y: CANVAS_HEIGHT + GATE_SPACING, color: 'blue', passed: false }
+    ];
+    const initialCoins = initialGates.map(gate => ({
+      x: gate.x - 30,
+      y: gate.y + GATE_HEIGHT / 2,
+      collected: false
+    }));
+    setGates(initialGates);
+    setCoins(initialCoins);
+    setNextColor('red');
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (gameOver) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          setPlayerX((prev) => Math.max(0, prev - 40));
+          break;
+        case 'ArrowRight':
+          setPlayerX((prev) => Math.min(CANVAS_WIDTH - PLAYER_WIDTH, prev + 40));
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameOver]);
+
+  useEffect(() => {
+    if (gameOver) return;
+
+    const gameTimer = setInterval(() => {
+      setGates((prevGates) => {
+        const updatedGates = prevGates.map((gate) => {
+          const newY = gate.y - 3;
+
+          if (newY < -GATE_HEIGHT) {
+            const newX = nextColor === 'red'
+              ? LEFT_BOUND_MIN + Math.random() * (LEFT_BOUND_MAX - LEFT_BOUND_MIN)
+              : RIGHT_BOUND_MIN + Math.random() * (RIGHT_BOUND_MAX - RIGHT_BOUND_MIN);
+            setNextColor(nextColor === 'red' ? 'blue' : 'red');
+            return { x: newX, y: CANVAS_HEIGHT, color: nextColor, passed: false };
+          }
+
+          return { ...gate, y: newY };
+        });
+
+        return updatedGates;
+      });
+
+      setCoins((prevCoins) => {
+        return prevCoins.map((coin, index) => {
+          const newY = coin.y - 3;
+          
+          if (newY < -COIN_RADIUS) {
+            const newGate = gates[index];
+            return {
+              x: newGate.x - 30,
+              y: CANVAS_HEIGHT + GATE_HEIGHT / 2,
+              collected: false
+            };
+          }
+
+          // Check coin collection
+          if (!coin.collected && 
+              playerX < coin.x + COIN_RADIUS && 
+              playerX + PLAYER_WIDTH > coin.x - COIN_RADIUS &&
+              newY < PLAYER_HEIGHT) {
+            setScore(prev => prev + 5);
+            return { ...coin, collected: true };
+          }
+
+          return { ...coin, y: newY };
+        });
+      });
+
+      gates.forEach((gate) => {
+        const gatePassedCorrectly =
+          (gate.color === 'red' && playerX + PLAYER_WIDTH < gate.x) ||
+          (gate.color === 'blue' && playerX > gate.x + GATE_WIDTH);
+
+        if (!gatePassedCorrectly && gate.y < PLAYER_HEIGHT && !gate.passed) {
+          setGameOver(true);
+        } else if (gatePassedCorrectly && gate.y < PLAYER_HEIGHT && !gate.passed) {
+          gate.passed = true;
+          setScore((prev) => prev + 1);
+        }
+      });
+    }, 20);
+
+    return () => clearInterval(gameTimer);
+  }, [gates, gameOver, playerX, nextColor]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    gates.forEach((gate) => {
+      ctx.fillStyle = gate.color;
+      ctx.fillRect(gate.x, gate.y, GATE_WIDTH, GATE_HEIGHT);
+    });
+
+    coins.forEach((coin) => {
+      if (!coin.collected) {
+        ctx.beginPath();
+        ctx.fillStyle = 'gold';
+        ctx.arc(coin.x, coin.y, COIN_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+
+    ctx.fillStyle = gameOver ? 'gray' : 'blue';
+    ctx.fillRect(playerX, 0, PLAYER_WIDTH, PLAYER_HEIGHT);
+
+    ctx.fillStyle = 'black';
+    ctx.font = '16px Arial';
+    ctx.fillText(`Score: ${score}`, 10, 20);
+  }, [playerX, gates, coins, gameOver, score]);
+
+  const restartGame = () => {
+    setPlayerX(200);
+    setScore(0);
+    setGameOver(false);
+    setNextColor('red');
+
+    const initialGates = [
+      { x: LEFT_BOUND_MIN + Math.random() * (LEFT_BOUND_MAX - LEFT_BOUND_MIN), y: CANVAS_HEIGHT, color: 'red', passed: false },
+      { x: RIGHT_BOUND_MIN + Math.random() * (RIGHT_BOUND_MAX - RIGHT_BOUND_MIN), y: CANVAS_HEIGHT + GATE_SPACING, color: 'blue', passed: false }
+    ];
+    const initialCoins = initialGates.map(gate => ({
+      x: gate.x - 30,
+      y: gate.y + GATE_HEIGHT / 2,
+      collected: false
+    }));
+    setGates(initialGates);
+    setCoins(initialCoins);
+  };
+
+  return (
+    <div className="flex flex-col items-center p-4 bg-gray-100">
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
+        className="border-2 border-gray-300"
+      />
+      <div className="mt-4 flex items-center space-x-4">
+        <div className="text-xl">Score: {score}</div>
+        {gameOver && (
+          <button
+            onClick={restartGame}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Restart Game
+          </button>
+        )}
+      </div>
+      <div className="mt-4 text-gray-600">Use ← → Arrow Keys to Navigate</div>
+    </div>
+  );
+};
+
+export default SkiGame;
