@@ -1,0 +1,1 @@
+The ski game is designed like a ski racer going down the mountain around gates using the keyboard arrowkeys. While using Claude.ai, I learned how specific my instuctions needed to be, and what the program was/ was not able to understand. For example, it did not understand the concept of a skier, but once I changed the wording for "Gate" it made the game I have now. 
